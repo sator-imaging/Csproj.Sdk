@@ -1,0 +1,30 @@
+{
+  "name": "com.sator-imaging.csproj-sdk",
+  "displayName": "Csproj.Sdk",
+  "version": "1.0.0",
+  "unity": "2021.3",
+  "description": "Csproj.Sdk to convert legacy-style .csproj files to sdk-style format. See `File > C# Project` for configuration options.",
+  "author": {
+    "name": "Sator Imaging",
+    "url": "https://x.com/sator_imaging"
+  },
+  "category": "Code Editor",
+  "keywords": [
+    "unity",
+    "csproj",
+    "legacy-style",
+    "sdk-style",
+    "visual studio",
+    "vs"
+  ],
+  "dependencies": {
+  },
+  "repository": {
+    "type": "git",
+    "url":            "https://github.com/sator-imaging/Csproj.Sdk.git"
+  },
+  "url":              "https://github.com/sator-imaging/Csproj.Sdk.git?path=Unity",
+  "documentationUrl": "https://github.com/sator-imaging/Csproj.Sdk",
+  "changelogUrl":     "https://github.com/sator-imaging/Csproj.Sdk",
+  "licensesUrl":      "https://github.com/sator-imaging/Csproj.Sdk"
+}
