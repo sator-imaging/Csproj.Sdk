@@ -520,16 +520,11 @@ $@"<Project xmlns=""{XML_NS}"">
 
 
             /* =      review resulting .csproj      = */
+#if UNITY_EDITOR_WIN
             [MenuItem(MENU_REVIEW_CSPROJ, priority = PRIORITY_MENU + 100)]  //+100
+#endif
             static void ReviewResultingCsproj()
             {
-                bool isWindows = false;
-#if UNITY_EDITOR_WIN
-                isWindows = true;
-#endif
-                if (!isWindows)
-                    return;
-
                 var targetPath = EditorUtility.OpenFilePanelWithFilters(nameof(UnityCsProjectConverter),
                     Application.dataPath + "/../.", new string[] { "C# Project", "csproj" });
 
