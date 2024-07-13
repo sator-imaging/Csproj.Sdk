@@ -6,14 +6,12 @@
 
 # How to Migrate `.csproj` to SDK-Style
 
-## Visual Studio
-
 To migrate, use `Csproj.Sdk.Void` as an SDK for your `.csproj`.
 
 ```xml
 <Project Sdk="Csproj.Sdk.Void/1.0.0">
     ...
-    ... original file contents ...
+    ... original file contents except for <Project> tag ...
     ...
 </Project>
 ```
