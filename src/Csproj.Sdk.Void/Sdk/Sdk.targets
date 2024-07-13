@@ -1,0 +1,9 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+	<!-- NOTE: this cannot be removed! -->
+	<PropertyGroup>
+		<AvailablePlatforms Condition="'$(VisualStudioVersion)' == '10.0' or '$(VisualStudioVersion)' == ''">Any CPU,x86,x64,Itanium</AvailablePlatforms>
+		<AvailablePlatforms Condition="'$(VisualStudioVersion)' != '' and '$(VisualStudioVersion)' > '10.0'">Any CPU,x86,x64</AvailablePlatforms>
+	</PropertyGroup>
+
+</Project>

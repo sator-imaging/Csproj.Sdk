@@ -1,0 +1,12 @@
+<Project>
+	<PropertyGroup>
+		<GlobalNugetPackageTitle>Csproj.Sdk</GlobalNugetPackageTitle>
+		<GlobalNugetPackageAuthor>sator-imaging</GlobalNugetPackageAuthor>
+		<GlobalNugetRepositoryUrl>https://github.com/sator-imaging/Csproj.Sdk</GlobalNugetRepositoryUrl>
+		<GlobalNugetProjectUrl>https://github.com/sator-imaging</GlobalNugetProjectUrl>
+		<GlobalNugetTags>unity; csproj; msbuild; visual studio; legacy; sdk style; migrate; migration; convert; converter</GlobalNugetTags>
+		<GlobalNugetPackageDescription>$(GlobalNugetRepositoryUrl)</GlobalNugetPackageDescription>
+		<GlobalNugetPackageReleaseNote>$(GlobalNugetRepositoryUrl)</GlobalNugetPackageReleaseNote>
+		<GlobalNugetPackageCopyright>$(GlobalNugetProjectUrl)</GlobalNugetPackageCopyright>
+	</PropertyGroup>
+</Project>
