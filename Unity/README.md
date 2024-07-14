@@ -14,7 +14,7 @@ Configuration options are available in `Unity Editor > File > C# Project` menu.
 
 # `Csproj.Sdk.Void`
 
-Editor extension will add latest version of `Csproj.Sdk.Void` package by default. When you need to specify certain version of SDK or other SDK package, see the following section.
+Editor extension will add latest version of `Csproj.Sdk.Void` SDK package by default. When you need to specify certain version or other SDK package, see the following section.
 
 
 
@@ -37,7 +37,7 @@ UnityCsProjectConverter.Prefs.Instance.UseVoidSdk = false;
 
 # `.csproj` Overrides
 
-Extension will add additional overrides to `.csproj`.
+Extension will add the following overrides to `.csproj`.
 
 - Unity project folder
     - `<ProjectFolderName>.UnityShared.props`
@@ -45,8 +45,8 @@ Extension will add additional overrides to `.csproj`.
     - `<ProjectFolderName>.UnityEditor.props` (see *note*)
     - `<ProjectFolderName>.UnityEditor.targets` (see *note*)
 - Unity project or ascendant folder
-    - `Directory.Build.props`
-    - `Directory.Build.targets`
+    - `Directory.Build.props` (by msbuild)
+    - `Directory.Build.targets` (by msbuild)
 
 > [!NOTE]
 > `.props` overrides loaded in earlier stage of parsing `.csproj` file and then `.targets` overrides loaded around end of parse.

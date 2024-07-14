@@ -2,6 +2,8 @@
 
 `Csproj.Sdk` is msbuild's SDK package that can be used for `.csproj` file to migrate legacy-style project to newer SDK-style format.
 
+[![Csproj.Sdk.Void](https://img.shields.io/nuget/v/csproj.sdk.void?label=Csproj.Sdk.Void)](https://www.nuget.org/packages/Csproj.Sdk.Void/)
+
 
 
 # How to Migrate `.csproj` to SDK-Style
@@ -28,11 +30,11 @@ See: [\<Nullable> has no effect in old-style csproj](https://github.com/dotnet/p
 
 # Unity Integration
 
-See [Unity/README.md](Unity/README.md)
+To migrate Unity project to sdk-style format, see [Unity/README.md](Unity/README.md)
 
-Note that Unity's Visual Studio Editor package changelog describes that adding support generation of SDK-style project, but unfortunately, it still generates legacy-style format with some changes such as project header updated to `<Project ToolsVersion="Current">`. (actually it is sdk-importing-legacy-style project)
+*Note*: Unity's Visual Studio Editor package changelog describes that adding support generation of SDK-style project, but unfortunately, it still generates legacy-style format with some changes such as project header updated to `<Project ToolsVersion="Current">`. (actually it is sdk-importing-legacy-style project)
 
-And also, sdk-importing-style format generation is only performed when External Script Editor is set to `VS Code`.
+And also sdk-importing-style format generation is only performed when External Script Editor is set to `VS Code`.
 Unity is still generating legacy-format for `Visual Studio` environment.
 
 
