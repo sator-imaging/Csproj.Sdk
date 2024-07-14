@@ -8,9 +8,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Xml;
 using UnityEditor;
 using UnityEditor.Build;
@@ -37,24 +40,119 @@ namespace SatorImaging.Csproj.Sdk
         /// <summary>
         /// NOTE: version must be specified. ex) Sdk.PackageName.On.Nuget.Org/1.0.0
         /// </summary>
-        public static string CustomSdkNameAndVersion { get; set; } = nameof(UnityCsProjectConverter) + "." + nameof(CustomSdkNameAndVersion) + " is not set";
+        public static string CustomSdkNameAndVersion { get; set; }
+            = nameof(UnityCsProjectConverter) + "." + nameof(CustomSdkNameAndVersion) + " is not set";
 
-        /// <summary>
-        /// `.csproj` allows to specify only major version for SDK. By default, converter use latest version found on nuget.org.
-        /// Set <see cref="CustomSdkNameAndVersion"/> and disable <see cref="Prefs.UseVoidSdk"/> to use certain version if required.
-        /// </summary>
-        public readonly static string SDK_VOID_CURRENT = "Csproj.Sdk.Void/1";
+        /// <inheritdoc cref="CustomSdkNameAndVersion"/>
+        public readonly static string SDK_VOID_NAME_SLASH = "Csproj.Sdk.Void/";
 
-
-
-
-        /*  prefs  ================================================================ */
+        private static string? _latestVoidSdkNameAndVersion;
+        public static string LatestVoidSdkNameAndVersion
+            => _latestVoidSdkNameAndVersion ??= SDK_VOID_NAME_SLASH + (GetVoidSdkVersionFromNugetOrgThread() ?? "1.0.1");
 
         public override int GetPostprocessOrder() => int.MinValue + 310;  // must be called first!!
                                                                           // don't use actual minimum value, it could be casted to wrong float inside unity!!
 
+        /*  nuget api  ================================================================ */
+
+        readonly static string NUGET_EP = @"https://api.nuget.org/v3-flatcontainer/csproj.sdk.void/index.json";
+        readonly static string MIME_JSON = @"application/json";
+        readonly static string PREF_LAST_FETCH_TIME = nameof(SatorImaging) + nameof(Csproj) + nameof(UnityCsProjectConverter) + nameof(PREF_LAST_FETCH_TIME);
+        readonly static DateTime FETCH_TIME_EPOCH = new(2024, 1, 1);  // overflows after 68 years!
+
+        [Serializable] sealed class NugetPayload { public string[]? versions; }
+
+        static string? GetVoidSdkVersionFromNugetOrgThread()
+        {
+            // NOTE: don't save last fetch time in prefs!! no worth to share each user fetch time on git!!
+            var lastFetchTimeSecsFromCustomEpoch = EditorPrefs.GetInt(PREF_LAST_FETCH_TIME, 0);
+
+            string? foundLatestVersion = null;
+
+            // don't fetch nuget.org repeatedly
+            var prefs = Prefs.Instance;
+            var elapsedTimeFromLastFetch = DateTime.UtcNow - FETCH_TIME_EPOCH.AddSeconds(lastFetchTimeSecsFromCustomEpoch);
+            if (elapsedTimeFromLastFetch.TotalDays < 1)
+            {
+                //UnityEngine.Debug.Log("[NuGet] elapsed time from last fetch < 1 day: " + elapsedTimeFromLastFetch);
+
+                foundLatestVersion = prefs.latestVoidSdkVersion;
+                goto VALIDATE_AND_RETURN;
+            }
+
+            EditorPrefs.SetInt(PREF_LAST_FETCH_TIME, Convert.ToInt32((DateTime.UtcNow - FETCH_TIME_EPOCH).TotalSeconds));
+
+
+            UnityEngine.Debug.Log("[NuGet] fetching nuget.org for package information...: " + SDK_VOID_NAME_SLASH);
+
+            var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            try
+            {
+                ThreadPool.QueueUserWorkItem(async static (tcs) =>
+                {
+                    //threadPool
+                    {
+                        {
+                            int timeoutMillisecs = Prefs.Instance.nugetOrgTimeoutMillis;
+
+                            using var cts = new CancellationTokenSource(timeoutMillisecs);
+
+                            using var client = new HttpClient();
+                            client.DefaultRequestHeaders.Accept.Clear();
+                            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue(MIME_JSON));
+
+                            try
+                            {
+                                var response = await client.GetAsync(NUGET_EP, cts.Token);
+                                if (response.IsSuccessStatusCode)
+                                {
+                                    var json = await response.Content.ReadAsStringAsync();
+                                    tcs.SetResult(json);
+                                }
+                            }
+                            catch (Exception exc)
+                            {
+                                tcs.SetException(exc);
+                            }
+
+                            tcs.SetException(new Exception("unhandled error"));
+                        }
+                    }
+                },
+                tcs, false);
+
+
+                // this will throw when thread task is failed
+                var json = tcs.Task.ConfigureAwait(false).GetAwaiter().GetResult();
+                var result = JsonUtility.FromJson<NugetPayload>(json);
+
+                foundLatestVersion = result.versions?[result.versions.Length - 1];
+                prefs.latestVoidSdkVersion = foundLatestVersion;
+
+                UnityEngine.Debug.Log("[NuGet] latest version found: " + SDK_VOID_NAME_SLASH + foundLatestVersion);
+
+                goto VALIDATE_AND_RETURN;
+            }
+            catch (Exception exc)
+            {
+                UnityEngine.Debug.LogError("[NuGet] operation timed out or api v3 is not available: " + exc);
+            }
+
+        VALIDATE_AND_RETURN:
+            if (string.IsNullOrWhiteSpace(foundLatestVersion))
+            {
+                prefs.latestVoidSdkVersion = null;
+                return null;
+            }
+            return foundLatestVersion;
+        }
+
+
+        /*  prefs  ================================================================ */
+
         /// <summary>
-        /// Preference saved as json in ProjectSettings.
+        /// [Thread-Safe]
+        /// Preference singleton saved as json in ProjectSettings.
         /// </summary>
         [Serializable]
         public sealed class Prefs
@@ -62,10 +160,15 @@ namespace SatorImaging.Csproj.Sdk
             readonly static string OUTPUT_PATH = Application.dataPath
                 + "/../ProjectSettings/" + nameof(UnityCsProjectConverter) + ".json";
 
-            public bool EnableGenerator = true;
-            public bool DisableOnBuild = false;
-            public bool EnableSdkStyle = true;
-            public bool UseVoidSdk = true;
+            // nuget.org
+            public string? latestVoidSdkVersion;
+            public int nugetOrgTimeoutMillis = 5000;
+
+            // menus
+            [SerializeField] bool enableGenerator = true;
+            [SerializeField] bool disableOnBuild = false;
+            [SerializeField] bool enableSdkStyle = true;
+            [SerializeField] bool useVoidSdk = true;
 
             private Prefs()
             {
@@ -79,6 +182,66 @@ namespace SatorImaging.Csproj.Sdk
             public static Prefs Instance => _instance ?? Interlocked.CompareExchange(ref _instance, new(), null) ?? _instance;
 
             public void Save() => File.WriteAllText(OUTPUT_PATH, JsonUtility.ToJson(this, true), Encoding.UTF8);
+
+
+            /* =      property      = */
+
+            public bool EnableGenerator
+            {
+                get => enableGenerator;
+                set
+                {
+                    if (enableGenerator == value)
+                        return;
+
+                    enableGenerator = value;
+
+                    Save();
+                }
+            }
+
+            public bool DisableOnBuild
+            {
+                get => disableOnBuild;
+                set
+                {
+                    if (disableOnBuild == value)
+                        return;
+
+                    disableOnBuild = value;
+
+                    Save();
+                }
+            }
+
+            public bool EnableSdkStyle
+            {
+                get => enableSdkStyle;
+                set
+                {
+                    if (enableSdkStyle == value)
+                        return;
+
+                    enableSdkStyle = value;
+
+                    Save();
+                }
+            }
+
+            public bool UseVoidSdk
+            {
+                get => useVoidSdk;
+                set
+                {
+                    if (useVoidSdk == value)
+                        return;
+
+                    useVoidSdk = value;
+
+                    Save();
+                }
+            }
+
         }
 
 
@@ -87,10 +250,6 @@ namespace SatorImaging.Csproj.Sdk
         /*
         static string OnGeneratedSlnSolution(string path, string content)
         {
-            if (!Prefs.Instance.EnableGenerator)
-                return content;
-
-            return content;
         }
         */
 
@@ -103,6 +262,12 @@ namespace SatorImaging.Csproj.Sdk
         {
             if (!Prefs.Instance.EnableGenerator)
                 return content;
+
+
+            //// TODO: double clicking .cs file in Unity always call this method for all assemblies (.asmdef)
+            ////       need to make it more efficient and faster
+            //UnityEngine.Debug.Log(nameof(UnityCsProjectConverter) + ": " + nameof(OnGeneratedCSProject) + ": " + path);
+
 
             CreateFileIfNotExists(UNITY_PROJ_DIR_NAME + EXT_SHARED + EXT_PROPS);
             CreateFileIfNotExists(UNITY_PROJ_DIR_NAME + EXT_EDITOR + EXT_PROPS);
@@ -130,8 +295,8 @@ namespace SatorImaging.Csproj.Sdk
 
             //sdk!!
             const string ATTR_SDK = "Sdk";
-            const string ATTR_TOOLS_VER = "ToolsVersion";
-            const string VALUE_CURRENT = "Current";
+            //const string ATTR_TOOLS_VER = "ToolsVersion";
+            //const string VALUE_CURRENT = "Current";
 
             if (Prefs.Instance.EnableSdkStyle)
             {
@@ -147,15 +312,9 @@ namespace SatorImaging.Csproj.Sdk
                         root.Attributes.RemoveAt(0);
                     }
 
-#if true
                     var sdkAttr = xml.CreateAttribute(ATTR_SDK);
-                    sdkAttr.Value = Prefs.Instance.UseVoidSdk ? SDK_VOID_CURRENT : CustomSdkNameAndVersion;
+                    sdkAttr.Value = Prefs.Instance.UseVoidSdk ? LatestVoidSdkNameAndVersion : CustomSdkNameAndVersion;
                     root.Attributes.Append(sdkAttr);
-#else
-                    var toolsAttr = xml.CreateAttribute(ATTR_TOOLS_VER);
-                    toolsAttr.Value = VALUE_CURRENT;
-                    root.Attributes.Append(toolsAttr);
-#endif
                 }
             }
 
@@ -230,40 +389,6 @@ namespace SatorImaging.Csproj.Sdk
             {
                 generatorElem[0].InnerText += "-" + nameof(UnityCsProjectConverter);
             }
-
-
-            /*
-            if (!Prefs.Instance.UseVoidSdk)
-            {
-                //PropertyGroup
-                var SDK_STYLE_PROP_AND_VALUES = new string[]
-                {
-                    "TargetFramework", "netstandard2.1",
-                    "EnableDefaultItems", "false",
-                    "ImplicitUsings", "disable",
-                    "DisableImplicitFrameworkReferences", "true",
-                };
-                for (int i = 0; i < SDK_STYLE_PROP_AND_VALUES.Length; i += 2)
-                {
-                    var node = xml.CreateNode(XmlNodeType.Element, SDK_STYLE_PROP_AND_VALUES[i], root.NamespaceURI);
-                    node.InnerText = SDK_STYLE_PROP_AND_VALUES[i + 1];
-
-                    propGroup.PrependChild(node);
-                }
-
-
-                //https://stackoverflow.com/questions/62950176/do-i-need-projectguid-and-projecttypeguids-in-the-new-2017-cps-based-project
-                var TAGS_TO_REMOVE = new string[] { "ProjectGuid", "ProjectTypeGuids" };
-                foreach (var tag in TAGS_TO_REMOVE)
-                {
-                    var foundNodes = xml.GetElementsByTagName(tag).Cast<XmlNode>().ToArray();
-                    foreach (var f in foundNodes)
-                    {
-                        f.ParentNode.RemoveChild(f);
-                    }
-                }
-            }
-            */
 
 
             //write!!
