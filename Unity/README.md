@@ -10,6 +10,8 @@ https://github.com/sator-imaging/Csproj.Sdk.git?path=Unity
 
 Configuration options are available in `Unity Editor > File > C# Project` menu.
 
+Scripting API: https://sator-imaging.github.io/Csproj.Sdk/api/
+
 
 
 # `Csproj.Sdk.Void`
