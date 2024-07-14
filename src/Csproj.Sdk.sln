@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.10.35013.160
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Csproj.Sdk.Unity.VisualStudio", "Csproj.Sdk.Unity.VisualStudio\Csproj.Sdk.Unity.VisualStudio.csproj", "{6C0442AE-CB8E-434B-BB2D-66021D53CF6B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{0DC3CB13-DAFB-4278-9046-39F7F6F635D4}"
+	ProjectSection(SolutionItems) = preProject
+		Directory.Build.props = Directory.Build.props
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Csproj.Sdk.Void", "Csproj.Sdk.Void\Csproj.Sdk.Void.csproj", "{20AD2765-63AE-45AA-8094-4E874AF2DA21}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6C0442AE-CB8E-434B-BB2D-66021D53CF6B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C0442AE-CB8E-434B-BB2D-66021D53CF6B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C0442AE-CB8E-434B-BB2D-66021D53CF6B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C0442AE-CB8E-434B-BB2D-66021D53CF6B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{20AD2765-63AE-45AA-8094-4E874AF2DA21}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{20AD2765-63AE-45AA-8094-4E874AF2DA21}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{20AD2765-63AE-45AA-8094-4E874AF2DA21}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{20AD2765-63AE-45AA-8094-4E874AF2DA21}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B226756A-848B-41D6-9FE7-FF2941FB23A5}
+	EndGlobalSection
+EndGlobal
