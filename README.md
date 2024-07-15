@@ -1,7 +1,8 @@
+`Csproj.Sdk` is msbuild SDK collection for C# project (`.csproj` file) to migrate legacy-style project to newer SDK-style format.
+
 [![Csproj.Sdk.Void](https://img.shields.io/nuget/v/csproj.sdk.void?label=Csproj.Sdk.Void)](https://www.nuget.org/packages/Csproj.Sdk.Void/)
 
 
-`Csproj.Sdk` is msbuild SDK collection for C# project (`.csproj` file) to migrate legacy-style project to newer SDK-style format.
 
 # How to Migrate `.csproj` to SDK-Style
 
