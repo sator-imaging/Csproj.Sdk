@@ -1,0 +1,35 @@
+<Project>
+  <PropertyGroup>
+
+    <!-- https://learn.microsoft.com/en-us/dotnet/standard/frameworks -->
+    <TargetFrameworks>
+      $(TargetFrameworks);
+
+      aspnet50;
+      aspnetcore50;
+      dnxcore50;
+      dnx;
+      dnx45;
+      dnx451;
+      dnx452;
+
+      dotnet;
+      dotnet50;
+      dotnet51;
+      dotnet52;
+      dotnet53;
+      dotnet54;
+      dotnet55;
+      dotnet56;
+
+      netcore50;
+
+      win;
+      win8;
+      win81;
+      win10;
+      winrt;
+    </TargetFrameworks>
+
+  </PropertyGroup>
+</Project>

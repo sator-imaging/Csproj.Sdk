@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+
+    <!-- https://learn.microsoft.com/en-us/dotnet/standard/frameworks -->
+    <TargetFrameworks>
+      $(TargetFrameworks);
+
+      netcore;
+      netcore45;
+      netcore451;
+    </TargetFrameworks>
+
+  </PropertyGroup>
+</Project>

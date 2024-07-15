@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+
+    <!-- https://learn.microsoft.com/en-us/dotnet/standard/frameworks -->
+    <TargetFrameworks>
+      $(TargetFrameworks);
+
+      uap;
+      uap10.0;
+    </TargetFrameworks>
+
+  </PropertyGroup>
+</Project>

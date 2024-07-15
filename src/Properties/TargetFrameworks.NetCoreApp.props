@@ -1,0 +1,23 @@
+<Project>
+  <PropertyGroup>
+
+    <!-- https://learn.microsoft.com/en-us/dotnet/standard/frameworks -->
+    <TargetFrameworks>
+      $(TargetFrameworks);
+
+      netcoreapp1.0;
+      netcoreapp1.1;
+      netcoreapp2.0;
+      netcoreapp2.1;
+      netcoreapp2.2;
+      netcoreapp3.0;
+      netcoreapp3.1;
+    </TargetFrameworks>
+
+    <!-- listed in official doc but cannot be used -->
+    <!--
+      netcoreapp;
+    -->
+
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+
+    <!-- https://learn.microsoft.com/en-us/dotnet/standard/frameworks -->
+    <TargetFrameworks>
+      $(TargetFrameworks);
+
+      net8.0;
+      net7.0;
+      net6.0;
+      net5.0;
+      netstandard2.1;
+      netcoreapp3.1;
+      net481;
+    </TargetFrameworks>
+
+  </PropertyGroup>
+</Project>

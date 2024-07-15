@@ -1,0 +1,17 @@
+<Project>
+  <PropertyGroup>
+
+    <!-- https://learn.microsoft.com/en-us/dotnet/standard/frameworks -->
+    <TargetFrameworks>
+      $(TargetFrameworks);
+
+      wp;
+      wp7;
+      wp75;
+      wp8;
+      wp81;
+      wpa81;
+    </TargetFrameworks>
+
+  </PropertyGroup>
+</Project>

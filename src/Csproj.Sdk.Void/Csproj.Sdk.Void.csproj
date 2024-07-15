@@ -1,11 +1,13 @@
 ﻿<Project Sdk="Microsoft.Build.NoTargets/3.7.56">
  
   <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+
+    <Version>1.1.0</Version>
     
     <!-- https://learn.microsoft.com/en-us/nuget/create-packages/set-package-type#known-package-types -->
     <PackageType>MSBuildSdk</PackageType>
-    
-    <TargetFramework>netstandard2.1</TargetFramework>
+
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Authors>$(GlobalNugetPackageAuthor)</Authors>
     <Title>$(GlobalNugetPackageTitle)</Title>
@@ -14,14 +16,36 @@
     <RepositoryUrl>$(GlobalNugetRepositoryUrl)</RepositoryUrl>
     <Copyright>$(GlobalNugetPackageCopyright)</Copyright>
     <Description>$(GlobalNugetPackageDescription)</Description>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageTags>$(GlobalNugetTags)</PackageTags>
     <PackageReleaseNotes>$(GlobalNugetPackageReleaseNote)</PackageReleaseNotes>
-    <Version>1.0.1</Version>
     <PackageId>$(GlobalNugetPackageName)</PackageId>
     <Product>$(GlobalNugetPackageTitle)</Product>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
- 
+
+  <!--
+    this condition works but .nuspec file has incorrect dependencies.
+      Condition=" '$(BuildingProject)' == 'true' "
+
+    no way to avoid VS creating long long property sheet for project.
+  -->
+  <Import Project="..\Properties\TargetFrameworks.Latest.props" />
+  <Import Project="..\Properties\TargetFrameworks.Net.props" />
+  <!--
+  <Import Project="..\Properties\TargetFrameworks.Net-OS-Specific.props" />
+  -->
+  <Import Project="..\Properties\TargetFrameworks.NetCoreApp.props" />
+  <Import Project="..\Properties\TargetFrameworks.NetFramework.props" />
+  <Import Project="..\Properties\TargetFrameworks.NetMicroFramework.props" />
+  <Import Project="..\Properties\TargetFrameworks.NetStandard.props" />
+  <Import Project="..\Properties\TargetFrameworks.Silverlight.props" />
+  <Import Project="..\Properties\TargetFrameworks.UniversalWindowsPlatform.props" />
+  <Import Project="..\Properties\TargetFrameworks.WindowsPhone.props" />
+  <Import Project="..\Properties\TargetFrameworks.WindowsStore.props" />
+  <!--
+  <Import Project="..\Properties\TargetFrameworks.Deprecated.props" />
+  -->
+
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <DebugType>none</DebugType>
   </PropertyGroup>
@@ -43,13 +67,6 @@
   <ItemGroup>
     <None Remove="*.sln" />
     <None Remove="*.csproj" />
-  </ItemGroup>
- 
-  <ItemGroup>
-    <None Update="README.md">
-      <Pack>True</Pack>
-      <PackagePath>\</PackagePath>
-    </None>
   </ItemGroup>
  
   <ItemGroup>
