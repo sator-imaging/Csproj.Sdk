@@ -58,7 +58,7 @@ namespace SatorImaging.Csproj.Sdk
         readonly static string NUGET_EP = @"https://api.nuget.org/v3-flatcontainer/csproj.sdk.void/index.json";
         readonly static string MIME_JSON = @"application/json";
         readonly static string PREF_LAST_FETCH_TIME = nameof(SatorImaging) + nameof(Csproj) + nameof(UnityCsProjectConverter) + nameof(PREF_LAST_FETCH_TIME);
-        readonly static DateTime FETCH_TIME_EPOCH = new(2024, 1, 1);  // overflows after 68 years!
+        readonly static DateTime FETCH_TIME_EPOCH = new(2024, 1, 1);  // TODO: overflows 68 years later!
 
         [Serializable] sealed class NugetPayload { public string[]? versions; }
 
@@ -256,6 +256,8 @@ namespace SatorImaging.Csproj.Sdk
 
         /*  .csproj  ================================================================ */
 
+        readonly static StringBuilder cache_sb = new();
+        
         static bool _generateForBuild = false;
 
         static string OnGeneratedCSProject(string path, string content)
@@ -392,8 +394,7 @@ namespace SatorImaging.Csproj.Sdk
 
 
             //write!!
-            using var stream = new StringWriter();
-            using var writer = XmlWriter.Create(stream, new XmlWriterSettings()
+            using var writer = XmlWriter.Create(cache_sb, new XmlWriterSettings()
             {
                 Encoding = Encoding.UTF8,
                 Indent = true,
@@ -406,12 +407,12 @@ namespace SatorImaging.Csproj.Sdk
             // remove namespaces!! no way to achieve by using XmlDocument interface!!
             if (Prefs.Instance.EnableSdkStyle)
             {
-                var sb = stream.GetStringBuilder();
-                sb.Replace(" xmlns=\"" + XML_NS + "\"", string.Empty);
+                cache_sb.Replace(" xmlns=\"" + XML_NS + "\"", string.Empty);
             }
 
+            content = cache_sb.ToString();
+            cache_sb.Length = 0;  // don't clear! buffer will be gone!!
 
-            content = stream.ToString();
             return content;
         }
 
