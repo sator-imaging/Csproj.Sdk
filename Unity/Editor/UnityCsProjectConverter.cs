@@ -262,7 +262,7 @@ namespace SatorImaging.Csproj.Sdk
         /*  .csproj  ================================================================ */
 
         readonly static StringBuilder cache_sb = new();
-        
+
         static bool _generateForBuild = false;
 
         static string OnGeneratedCSProject(string path, string content)
@@ -512,23 +512,23 @@ $@"<Project xmlns=""{XML_NS}"">
                 // for commandline build
                 Console.WriteLine(nameof(UnityCsProjectConverter) + ": " + nameof(OnPreprocessBuild));
 
-                // NOTE: DisableOnBuild doesn't exit here
-                //       it needs to run to revert .csproj files back to original state!!
-                bool restoreEnableGenerator = Prefs.Instance.EnableGenerator;
-                if (Prefs.Instance.DisableOnBuild)
-                {
-                    Prefs.Instance.EnableGenerator = false;
-                }
-
-
                 // NOTE: it seems that IPostprocessBuild won't run in batch mode when error
                 //       register on app quit action for workaround
                 RegisterRegenerateActionOnlyOnBatchBuild();
 
 
-                _generateForBuild = true;
+                // NOTE: DisableOnBuild doesn't exit here
+                //       it needs to run to revert .csproj files back to original state!!
+                bool restoreEnableGenerator = Prefs.Instance.EnableGenerator;
+                if (Prefs.Instance.DisableOnBuild)
+                {
+                    Prefs.Instance.EnableGenerator = false;  // this will force generation method early return
+                }
+
+
                 try
                 {
+                    _generateForBuild = true;
                     RegenerateProjectFiles();
                 }
                 finally
