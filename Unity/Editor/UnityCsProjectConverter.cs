@@ -50,8 +50,13 @@ namespace SatorImaging.Csproj.Sdk
         public static string LatestVoidSdkNameAndVersion
             => _latestVoidSdkNameAndVersion ??= SDK_VOID_NAME_SLASH + (GetVoidSdkVersionFromNugetOrgThread() ?? "1.0.1");
 
-        public override int GetPostprocessOrder() => int.MinValue + 310;  // must be called first!!
-                                                                          // don't use actual minimum value, it could be casted to wrong float inside unity!!
+        // NOTE: this and internal pre/post build processors could change .csproj file content and it may affect Unity or other scripts.
+        //       so callbacks must be called earlier as possible than others, and leave room to insert something before.
+        //       * don't use actual minimum value, it could be casted to wrong float inside unity. e.g. MenuItem priority
+        public readonly static int CALLBACK_ORDER = int.MinValue + 310;
+
+        public override int GetPostprocessOrder() => CALLBACK_ORDER;
+
 
         /*  nuget api  ================================================================ */
 
@@ -497,8 +502,7 @@ $@"<Project xmlns=""{XML_NS}"">
         // need to regenerate before building app to apply generator settings
         public sealed class BuildPreprocessor : IPreprocessBuildWithReport
         {
-            public int callbackOrder => int.MinValue + 310;  // must be called first!!
-                                                             // don't use actual minimum value, it could be casted to wrong float inside unity!!
+            public int callbackOrder => CALLBACK_ORDER;
 
             public void OnPreprocessBuild(BuildReport report)
             {
@@ -539,8 +543,7 @@ $@"<Project xmlns=""{XML_NS}"">
         // rebuild is required to revert .csproj content back to editor state
         public sealed class BuildPostprocessor : IPostprocessBuildWithReport
         {
-            public int callbackOrder => int.MaxValue - 310;  // must be called at last!!
-                                                             // don't use actual max value, it could be casted to wrong float inside unity!!
+            public int callbackOrder => CALLBACK_ORDER;
 
             public void OnPostprocessBuild(BuildReport report)
             {
