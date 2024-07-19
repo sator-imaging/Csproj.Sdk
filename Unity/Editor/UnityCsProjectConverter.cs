@@ -6,6 +6,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -15,6 +16,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml;
+using System.Xml.Linq;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -40,214 +42,24 @@ namespace SatorImaging.Csproj.Sdk
         /// <summary>
         /// NOTE: version must be specified. ex) Sdk.PackageName.On.Nuget.Org/1.0.0
         /// </summary>
-        public static string CustomSdkNameAndVersion { get; set; }
-            = nameof(UnityCsProjectConverter) + "." + nameof(CustomSdkNameAndVersion) + " is not set";
+        public static string CustomSdkNameWithVersion { get; set; }
+            = nameof(UnityCsProjectConverter) + "." + nameof(CustomSdkNameWithVersion) + " is not set";
 
-        /// <inheritdoc cref="CustomSdkNameAndVersion"/>
+        /// <inheritdoc cref="CustomSdkNameWithVersion"/>
         public readonly static string SDK_VOID_NAME_SLASH = "Csproj.Sdk.Void/";
+        public readonly static string SDK_VOID_DEFAULT_VERSION = "1.1.0";
 
-        private static string? _latestVoidSdkNameAndVersion;
-        public static string LatestVoidSdkNameAndVersion
-            => _latestVoidSdkNameAndVersion ??= SDK_VOID_NAME_SLASH + (GetVoidSdkVersionFromNugetOrgThread() ?? "1.0.1");
+        private static string? _latestVoidSdkNameWithVersion;
+        public static string LatestVoidSdkNameWithVersion
+            => _latestVoidSdkNameWithVersion ??= SDK_VOID_NAME_SLASH + (GetVoidSdkVersionFromNugetOrgThread() ?? SDK_VOID_DEFAULT_VERSION);
 
         // NOTE: this and internal pre/post build processors could change .csproj file content and it may affect Unity or other scripts.
         //       so callbacks must be called earlier as possible than others, and leave room to insert something before.
         //       * don't use actual minimum value, it could be casted to wrong float inside unity. e.g. MenuItem priority
-        public readonly static int CALLBACK_ORDER = int.MinValue + 310;
+        /// <summary>Set callback order for this class and internal pre/post build processors.</summary>
+        public static int CallbackOrder { get; set; } = int.MinValue + 310;
 
-        public override int GetPostprocessOrder() => CALLBACK_ORDER;
-
-
-        /*  nuget api  ================================================================ */
-
-        readonly static string NUGET_EP = @"https://api.nuget.org/v3-flatcontainer/csproj.sdk.void/index.json";
-        readonly static string MIME_JSON = @"application/json";
-        readonly static string PREF_LAST_FETCH_TIME = nameof(SatorImaging) + nameof(Csproj) + nameof(UnityCsProjectConverter) + nameof(PREF_LAST_FETCH_TIME);
-        readonly static DateTime FETCH_TIME_EPOCH = new(2024, 1, 1);  // TODO: overflows 68 years later!
-
-        [Serializable] sealed class NugetPayload { public string[]? versions; }
-
-        static string? GetVoidSdkVersionFromNugetOrgThread()
-        {
-            // NOTE: don't save last fetch time in prefs!! no worth to share each user fetch time on git!!
-            var lastFetchTimeSecsFromCustomEpoch = EditorPrefs.GetInt(PREF_LAST_FETCH_TIME, 0);
-
-            string? foundLatestVersion = null;
-
-            // don't fetch nuget.org repeatedly
-            var prefs = Prefs.Instance;
-            var elapsedTimeFromLastFetch = DateTime.UtcNow - FETCH_TIME_EPOCH.AddSeconds(lastFetchTimeSecsFromCustomEpoch);
-            if (elapsedTimeFromLastFetch.TotalDays < 1)
-            {
-                //UnityEngine.Debug.Log("[NuGet] elapsed time from last fetch < 1 day: " + elapsedTimeFromLastFetch);
-
-                foundLatestVersion = prefs.latestVoidSdkVersion;
-                goto VALIDATE_AND_RETURN;
-            }
-
-            EditorPrefs.SetInt(PREF_LAST_FETCH_TIME, Convert.ToInt32((DateTime.UtcNow - FETCH_TIME_EPOCH).TotalSeconds));
-
-
-            UnityEngine.Debug.Log("[NuGet] fetching nuget.org for package information...: " + SDK_VOID_NAME_SLASH);
-
-            var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
-            try
-            {
-                ThreadPool.QueueUserWorkItem(async static (tcs) =>
-                {
-                    //threadPool
-                    {
-                        {
-                            int timeoutMillisecs = Prefs.Instance.nugetOrgTimeoutMillis;
-
-                            using var cts = new CancellationTokenSource(timeoutMillisecs);
-
-                            using var client = new HttpClient();
-                            client.DefaultRequestHeaders.Accept.Clear();
-                            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue(MIME_JSON));
-
-                            try
-                            {
-                                var response = await client.GetAsync(NUGET_EP, cts.Token);
-                                if (response.IsSuccessStatusCode)
-                                {
-                                    var json = await response.Content.ReadAsStringAsync();
-                                    tcs.SetResult(json);
-                                }
-                            }
-                            catch (Exception exc)
-                            {
-                                tcs.SetException(exc);
-                            }
-
-                            tcs.SetException(new Exception("unhandled error"));
-                        }
-                    }
-                },
-                tcs, false);
-
-
-                // this will throw when thread task is failed
-                var json = tcs.Task.ConfigureAwait(false).GetAwaiter().GetResult();
-                var result = JsonUtility.FromJson<NugetPayload>(json);
-
-                foundLatestVersion = result.versions?[result.versions.Length - 1];
-                prefs.latestVoidSdkVersion = foundLatestVersion;
-
-                UnityEngine.Debug.Log("[NuGet] latest version found: " + SDK_VOID_NAME_SLASH + foundLatestVersion);
-
-                goto VALIDATE_AND_RETURN;
-            }
-            catch (Exception exc)
-            {
-                UnityEngine.Debug.LogError("[NuGet] operation timed out or api v3 is not available: " + exc);
-            }
-
-        VALIDATE_AND_RETURN:
-            if (string.IsNullOrWhiteSpace(foundLatestVersion))
-            {
-                prefs.latestVoidSdkVersion = null;
-                return null;
-            }
-            return foundLatestVersion;
-        }
-
-
-        /*  prefs  ================================================================ */
-
-        /// <summary>
-        /// [Thread-Safe]
-        /// Preference singleton saved as json in ProjectSettings.
-        /// </summary>
-        [Serializable]
-        public sealed class Prefs
-        {
-            readonly static string OUTPUT_PATH = Application.dataPath
-                + "/../ProjectSettings/" + nameof(UnityCsProjectConverter) + ".json";
-
-            // nuget.org
-            public string? latestVoidSdkVersion;
-            public int nugetOrgTimeoutMillis = 5000;
-
-            // menus
-            [SerializeField] bool enableGenerator = true;
-            [SerializeField] bool disableOnBuild = false;
-            [SerializeField] bool enableSdkStyle = true;
-            [SerializeField] bool useVoidSdk = true;
-
-            private Prefs()
-            {
-                EditorApplication.quitting += Save;
-
-                if (File.Exists(OUTPUT_PATH))
-                    JsonUtility.FromJsonOverwrite(File.ReadAllText(OUTPUT_PATH, Encoding.UTF8), this);
-            }
-
-            volatile static Prefs? _instance;
-            public static Prefs Instance => _instance ?? Interlocked.CompareExchange(ref _instance, new(), null) ?? _instance;
-
-            public void Save() => File.WriteAllText(OUTPUT_PATH, JsonUtility.ToJson(this, true), Encoding.UTF8);
-
-
-            /* =      property      = */
-
-            public bool EnableGenerator
-            {
-                get => enableGenerator;
-                set
-                {
-                    if (enableGenerator == value)
-                        return;
-
-                    enableGenerator = value;
-
-                    Save();
-                }
-            }
-
-            public bool DisableOnBuild
-            {
-                get => disableOnBuild;
-                set
-                {
-                    if (disableOnBuild == value)
-                        return;
-
-                    disableOnBuild = value;
-
-                    Save();
-                }
-            }
-
-            public bool EnableSdkStyle
-            {
-                get => enableSdkStyle;
-                set
-                {
-                    if (enableSdkStyle == value)
-                        return;
-
-                    enableSdkStyle = value;
-
-                    Save();
-                }
-            }
-
-            public bool UseVoidSdk
-            {
-                get => useVoidSdk;
-                set
-                {
-                    if (useVoidSdk == value)
-                        return;
-
-                    useVoidSdk = value;
-
-                    Save();
-                }
-            }
-
-        }
+        public override int GetPostprocessOrder() => CallbackOrder;
 
 
         /*  .sln  ================================================================ */
@@ -261,12 +73,11 @@ namespace SatorImaging.Csproj.Sdk
 
         /*  .csproj  ================================================================ */
 
-        readonly static StringBuilder cache_sb = new();
-
         static bool _generateForBuild = false;
 
         static string OnGeneratedCSProject(string path, string content)
         {
+            // return as-is
             if (!Prefs.Instance.EnableGenerator)
                 return content;
 
@@ -275,68 +86,31 @@ namespace SatorImaging.Csproj.Sdk
             ////       need to make it more efficient and faster
             //UnityEngine.Debug.Log(nameof(UnityCsProjectConverter) + ": " + nameof(OnGeneratedCSProject) + ": " + path);
 
-
             CreateFileIfNotExists(UNITY_PROJ_DIR_NAME + EXT_SHARED + EXT_PROPS);
             CreateFileIfNotExists(UNITY_PROJ_DIR_NAME + EXT_EDITOR + EXT_PROPS);
             CreateFileIfNotExists(UNITY_PROJ_DIR_NAME + EXT_SHARED + EXT_TARGETS);
             CreateFileIfNotExists(UNITY_PROJ_DIR_NAME + EXT_EDITOR + EXT_TARGETS);
 
-            var xml = new XmlDocument();
-            xml.LoadXml(content);
-
-
-            const string TAG_PROJECT = "Project";
-
-            XmlNode? root = null;
-            foreach (var candidate in xml.GetElementsByTagName(TAG_PROJECT).Cast<XmlNode>())
-            {
-                root = candidate;
-                break;
-            }
-            if (root == null)
-            {
-                UnityEngine.Debug.LogError("unable to take .csproj node: " + TAG_PROJECT);
-                return content;
-            }
-
+            var xdoc = XDocument.Parse(content);
+            var ns = XNamespace.Get(XML_NS);
+            var root = xdoc.Root;
 
             //sdk!!
             const string ATTR_SDK = "Sdk";
-            //const string ATTR_TOOLS_VER = "ToolsVersion";
-            //const string VALUE_CURRENT = "Current";
 
             if (Prefs.Instance.EnableSdkStyle)
             {
-                if (!root.Attributes.Cast<XmlAttribute>().Any(static x =>
+                if (!root.Attributes().Any(x => x.Name.LocalName.Equals(ATTR_SDK, StringComparison.OrdinalIgnoreCase)))
                 {
-                    return x.Name.Equals(ATTR_SDK, StringComparison.OrdinalIgnoreCase)
-                        //|| (x.Name.Equals(ATTR_TOOLS_VER, StringComparison.OrdinalIgnoreCase) && x.Value.Equals(VALUE_CURRENT, StringComparison.OrdinalIgnoreCase))
-                        ;
-                }))
-                {
-                    while (root.Attributes.Count > 0)
-                    {
-                        root.Attributes.RemoveAt(0);
-                    }
-
-                    var sdkAttr = xml.CreateAttribute(ATTR_SDK);
-                    sdkAttr.Value = Prefs.Instance.UseVoidSdk ? LatestVoidSdkNameAndVersion : CustomSdkNameAndVersion;
-                    root.Attributes.Append(sdkAttr);
+                    root.RemoveAttributes();
+                    root.SetAttributeValue(ATTR_SDK, Prefs.Instance.UseVoidSdk ? LatestVoidSdkNameWithVersion : CustomSdkNameWithVersion);
                 }
             }
 
 
             const string TAG_PROPERTY_GROUP = "PropertyGroup";
 
-            XmlNode? propGroup = null;
-            foreach (var candidate in root.ChildNodes.Cast<XmlNode>())
-            {
-                if (candidate.Name != TAG_PROPERTY_GROUP)
-                    continue;
-
-                propGroup = candidate;
-                break;
-            }
+            var propGroup = xdoc.Descendants(ns.GetName(TAG_PROPERTY_GROUP)).FirstOrDefault();
             if (propGroup == null)
             {
                 UnityEngine.Debug.LogError("unable to take .csproj node: " + TAG_PROPERTY_GROUP);
@@ -346,73 +120,60 @@ namespace SatorImaging.Csproj.Sdk
 
             // Custom .props/.targets!!
             const string TAG_IMPORT = "Import";
-            var fileExts = new string[] { EXT_SHARED, EXT_EDITOR };
+            const string ATTR_PROJECT = "Project";
+            var importTypes = new string[] { EXT_SHARED, EXT_EDITOR };
 
             /* =      .props      = */
-            // reversed order!! later appears earlier in xml
-            root.PrependChild(CreateCommentNode(xml, root, string.Empty));
 
-            foreach (var ext in fileExts.Reverse())  // reversed order!!
+            // reversed order!! later appears earlier in xml
+            root.AddFirst(new XComment(string.Empty));
+
+            foreach (var import in importTypes.Reverse())  // reversed order!!
             {
-                if (_generateForBuild && ext == EXT_EDITOR)
+                if (_generateForBuild && import == EXT_EDITOR)
                     continue;
 
-                var node = xml.CreateNode(XmlNodeType.Element, TAG_IMPORT, root.NamespaceURI);
-                var attr = xml.CreateAttribute(TAG_PROJECT, string.Empty);
-                attr.Value = UNITY_PROJ_DIR_NAME + ext + EXT_PROPS;
-                node.Attributes.Append(attr);
-
-                root.PrependChild(node);
+                root.AddFirst(new XElement(ns.GetName(TAG_IMPORT), new XAttribute(ATTR_PROJECT, UNITY_PROJ_DIR_NAME + import + EXT_PROPS)));
             }
 
-            root.PrependChild(CreateCommentNode(xml, root, nameof(UnityCsProjectConverter)));
-            root.PrependChild(CreateCommentNode(xml, root, string.Empty));
+            root.AddFirst(new XComment(nameof(UnityCsProjectConverter)));
+            root.AddFirst(new XComment(string.Empty));
 
 
             /* =      .targets      = */
-            root.AppendChild(CreateCommentNode(xml, root, string.Empty));
-            root.AppendChild(CreateCommentNode(xml, root, nameof(UnityCsProjectConverter)));
 
-            foreach (var ext in fileExts)
+            root.Add(new XComment(string.Empty));
+            root.Add(new XComment(nameof(UnityCsProjectConverter)));
+
+            foreach (var import in importTypes)
             {
-                if (_generateForBuild && ext == EXT_EDITOR)
+                if (_generateForBuild && import == EXT_EDITOR)
                     continue;
 
-                var node = xml.CreateNode(XmlNodeType.Element, TAG_IMPORT, root.NamespaceURI);
-                var attr = xml.CreateAttribute(TAG_PROJECT, string.Empty);
-                attr.Value = UNITY_PROJ_DIR_NAME + ext + EXT_TARGETS;
-                node.Attributes.Append(attr);
-
-                root.AppendChild(node);
+                root.Add(new XElement(ns.GetName(TAG_IMPORT), new XAttribute(ATTR_PROJECT, UNITY_PROJ_DIR_NAME + import + EXT_TARGETS)));
             }
 
-            root.AppendChild(CreateCommentNode(xml, root, string.Empty));
+            root.Add(new XComment(string.Empty));
 
 
             //version!?
             const string TAG_GENERATOR = "UnityProjectGenerator";
-            var generatorElem = xml.GetElementsByTagName(TAG_GENERATOR);
-            if (generatorElem.Count == 1)
+
+            var generatorNode = xdoc.Descendants(ns.GetName(TAG_GENERATOR)).FirstOrDefault();
+            if (generatorNode != null)
             {
-                generatorElem[0].InnerText += "-" + nameof(UnityCsProjectConverter);
+                generatorNode.Value += "-" + nameof(UnityCsProjectConverter);
             }
 
 
-            //write!!
-            using var writer = XmlWriter.Create(cache_sb, new XmlWriterSettings()
-            {
-                Encoding = Encoding.UTF8,
-                Indent = true,
-            });
+            // this converter doesn't write file, reusing writer!!
+            xdoc.Save(cache_writer, SaveOptions.None);
+            cache_writer.Flush();
 
-            xml.WriteContentTo(writer);
-            writer.Flush();
-
-
-            // remove namespaces!! no way to achieve by using XmlDocument interface!!
+            // remove namespace!! no way to achieve by using XDocument interface!!
             if (Prefs.Instance.EnableSdkStyle)
             {
-                cache_sb.Replace(" xmlns=\"" + XML_NS + "\"", string.Empty);
+                cache_sb.Replace(" xmlns=\"" + XML_NS + "\"", string.Empty, 0, 512);  // 256 is enough, 512 for safe
             }
 
             content = cache_sb.ToString();
@@ -420,6 +181,18 @@ namespace SatorImaging.Csproj.Sdk
 
             return content;
         }
+
+
+        // NOTE: resulting .csproj file is written by Unity, not by this converter, and file encoding is utf-8.
+        //       this writer class is required due to XDocument automatically update <?xml encoding="..."?> to writer's encoding. (ex: utf-16)
+        sealed class XDocumentWriter : StringWriter
+        {
+            public XDocumentWriter(StringBuilder sb) : base(sb, CultureInfo.InvariantCulture) { }
+            public override Encoding Encoding => Encoding.UTF8;
+        }
+
+        readonly static StringBuilder cache_sb = new(capacity: 65536);  // usual .csproj file size is around 60KB
+        readonly static XDocumentWriter cache_writer = new(cache_sb);
 
 
         /*  helper  ================================================================ */
@@ -502,7 +275,7 @@ $@"<Project xmlns=""{XML_NS}"">
         // need to regenerate before building app to apply generator settings
         public sealed class BuildPreprocessor : IPreprocessBuildWithReport
         {
-            public int callbackOrder => CALLBACK_ORDER;
+            public int callbackOrder => CallbackOrder;
 
             public void OnPreprocessBuild(BuildReport report)
             {
@@ -543,7 +316,7 @@ $@"<Project xmlns=""{XML_NS}"">
         // rebuild is required to revert .csproj content back to editor state
         public sealed class BuildPostprocessor : IPostprocessBuildWithReport
         {
-            public int callbackOrder => CALLBACK_ORDER;
+            public int callbackOrder => CallbackOrder;
 
             public void OnPostprocessBuild(BuildReport report)
             {
@@ -579,9 +352,6 @@ $@"<Project xmlns=""{XML_NS}"">
             [UnityEditor.Callbacks.DidReloadScripts]
             static void UnityEditor_Initialize()
             {
-                // need to save to .json before recompile in Unity editor
-                CompilationPipeline.compilationStarted += _ => Prefs.Instance.Save();
-
                 // must delay to wait menu item creation
                 EditorApplication.delayCall += () =>
                 {
@@ -590,6 +360,9 @@ $@"<Project xmlns=""{XML_NS}"">
                     Menu.SetChecked(MENU_DISABLE_ON_BUILD, prefs.DisableOnBuild);
                     Menu.SetChecked(MENU_ENABLE_SDK_STYLE, prefs.EnableSdkStyle);
                     Menu.SetChecked(MENU_USE_VOID_SDK, prefs.UseVoidSdk);
+
+                    // need to save to .json before recompile in Unity editor
+                    CompilationPipeline.compilationStarted += _ => prefs.Save();
                 };
             }
 
@@ -678,6 +451,209 @@ $@"<Project xmlns=""{XML_NS}"">
                 proc.WaitForExit();
 
                 Process.Start("notepad", tempFilePath);
+            }
+        }
+
+
+        /*  nuget api  ================================================================ */
+
+        readonly static string NUGET_EP = @"https://api.nuget.org/v3-flatcontainer/csproj.sdk.void/index.json";
+        readonly static string MIME_JSON = @"application/json";
+        readonly static string PREF_LAST_FETCH_TIME = nameof(SatorImaging) + nameof(Csproj) + nameof(UnityCsProjectConverter) + nameof(PREF_LAST_FETCH_TIME);
+        readonly static DateTime FETCH_TIME_EPOCH = new(2024, 1, 1);  // TODO: overflows 68 years later!
+
+        [Serializable] sealed class NugetPayload { public string[]? versions; }
+
+        static string? GetVoidSdkVersionFromNugetOrgThread()
+        {
+            // NOTE: don't save last fetch time in prefs!! no worth to share each user fetch time on git!!
+            var lastFetchTimeSecsFromCustomEpoch = EditorPrefs.GetInt(PREF_LAST_FETCH_TIME, 0);
+
+            string? foundLatestVersion = null;
+
+            // don't fetch nuget.org repeatedly
+            var prefs = Prefs.Instance;
+            var elapsedTimeFromLastFetch = DateTime.UtcNow - FETCH_TIME_EPOCH.AddSeconds(lastFetchTimeSecsFromCustomEpoch);
+            if (elapsedTimeFromLastFetch.TotalDays < 1)
+            {
+                //UnityEngine.Debug.Log("[NuGet] elapsed time from last fetch < 1 day: " + elapsedTimeFromLastFetch);
+
+                foundLatestVersion = prefs.LatestVoidSdkVersion;
+                goto VALIDATE_AND_RETURN;
+            }
+
+            EditorPrefs.SetInt(PREF_LAST_FETCH_TIME, Convert.ToInt32((DateTime.UtcNow - FETCH_TIME_EPOCH).TotalSeconds));
+
+
+            UnityEngine.Debug.Log("[NuGet] fetching nuget.org for package information...: " + SDK_VOID_NAME_SLASH);
+
+            var tcs = new TaskCompletionSource<string?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            try
+            {
+                ThreadPool.QueueUserWorkItem(async static (tcs) =>
+                {
+                    //threadPool
+                    {
+                        {
+                            int timeoutMillisecs = Prefs.Instance.NugetOrgTimeoutMillis;
+
+                            using var cts = new CancellationTokenSource(timeoutMillisecs);
+
+                            using var client = new HttpClient();
+                            client.DefaultRequestHeaders.Accept.Clear();
+                            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue(MIME_JSON));
+
+                            try
+                            {
+                                var response = await client.GetAsync(NUGET_EP, cts.Token);
+                                if (response.IsSuccessStatusCode)
+                                {
+                                    var json = await response.Content.ReadAsStringAsync();
+                                    tcs.SetResult(json);
+                                }
+                            }
+                            catch (Exception exc)
+                            {
+                                tcs.SetException(exc);
+                            }
+
+                            tcs.SetException(new Exception("unhandled error"));
+                        }
+                    }
+                },
+                tcs, false);
+
+
+                // this will throw when thread task is failed
+                var json = tcs.Task.ConfigureAwait(false).GetAwaiter().GetResult();
+                var result = JsonUtility.FromJson<NugetPayload>(json);
+
+                foundLatestVersion = result.versions?[result.versions.Length - 1];
+                prefs.LatestVoidSdkVersion = foundLatestVersion;
+
+                UnityEngine.Debug.Log("[NuGet] latest version found: " + SDK_VOID_NAME_SLASH + foundLatestVersion);
+
+                goto VALIDATE_AND_RETURN;
+            }
+            catch (Exception exc)
+            {
+                UnityEngine.Debug.LogError("[NuGet] operation timed out or api v3 is not available: " + exc);
+            }
+
+        VALIDATE_AND_RETURN:
+            if (string.IsNullOrWhiteSpace(foundLatestVersion))
+            {
+                prefs.LatestVoidSdkVersion = null;
+                return null;
+            }
+            return foundLatestVersion;
+        }
+
+
+        /*  prefs  ================================================================ */
+
+        /// <summary>
+        /// [Thread-Safe]
+        /// Preference singleton saved as json in ProjectSettings.
+        /// </summary>
+        [Serializable]
+        public sealed class Prefs
+        {
+            readonly static string OUTPUT_PATH = Application.dataPath
+                + "/../ProjectSettings/" + nameof(UnityCsProjectConverter) + ".json";
+
+            // nuget.org
+            [SerializeField] string? latestVoidSdkVersion;
+            [SerializeField] int nugetOrgTimeoutMillis = 5000;
+
+            // menus
+            [SerializeField] bool enableGenerator = true;
+            [SerializeField] bool disableOnBuild = false;
+            [SerializeField] bool enableSdkStyle = true;
+            [SerializeField] bool useVoidSdk = true;
+
+            private Prefs()
+            {
+                EditorApplication.quitting += Save;
+
+                if (File.Exists(OUTPUT_PATH))
+                    JsonUtility.FromJsonOverwrite(File.ReadAllText(OUTPUT_PATH, Encoding.UTF8), this);
+            }
+
+            volatile static Prefs? _instance;
+            public static Prefs Instance => _instance ?? Interlocked.CompareExchange(ref _instance, new(), null) ?? _instance;
+
+            public void Save() => File.WriteAllText(OUTPUT_PATH, JsonUtility.ToJson(this, true), Encoding.UTF8);
+
+
+            /* =      property      = */
+
+            public string? LatestVoidSdkVersion
+            {
+                get { return latestVoidSdkVersion; }
+                set { latestVoidSdkVersion = value; }
+            }
+
+            public int NugetOrgTimeoutMillis
+            {
+                get { return nugetOrgTimeoutMillis; }
+                set { nugetOrgTimeoutMillis = value; }
+            }
+
+            public bool EnableGenerator
+            {
+                get => enableGenerator;
+                set
+                {
+                    if (enableGenerator == value)
+                        return;
+
+                    enableGenerator = value;
+
+                    //Save();
+                }
+            }
+
+            public bool DisableOnBuild
+            {
+                get => disableOnBuild;
+                set
+                {
+                    if (disableOnBuild == value)
+                        return;
+
+                    disableOnBuild = value;
+
+                    //Save();
+                }
+            }
+
+            public bool EnableSdkStyle
+            {
+                get => enableSdkStyle;
+                set
+                {
+                    if (enableSdkStyle == value)
+                        return;
+
+                    enableSdkStyle = value;
+
+                    //Save();
+                }
+            }
+
+            public bool UseVoidSdk
+            {
+                get => useVoidSdk;
+                set
+                {
+                    if (useVoidSdk == value)
+                        return;
+
+                    useVoidSdk = value;
+
+                    //Save();
+                }
             }
         }
 

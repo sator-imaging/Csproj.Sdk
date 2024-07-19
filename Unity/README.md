@@ -24,7 +24,7 @@ Editor extension will add latest version of `Csproj.Sdk.Void` SDK package by def
 
 You can use your own sdk by setting like as follows.
 ```cs
-UnityCsProjectConverter.CustomSdkNameAndVersion = "MyApp.Sdk/1.0.0";
+UnityCsProjectConverter.CustomSdkNameWithVersion = "MyApp.Sdk/1.0.0";
 ```
 
 Note that you need to disable "Use Void SDK" option in `File > C# Project` menu or by C# script.

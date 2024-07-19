@@ -1,7 +1,7 @@
 {
   "name": "com.sator-imaging.csproj-sdk",
   "displayName": "Csproj.Sdk",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "unity": "2021.3",
   "description": "Csproj.Sdk to convert legacy-style .csproj files to sdk-style format. See `File > C# Project` for configuration options.",
   "author": {
