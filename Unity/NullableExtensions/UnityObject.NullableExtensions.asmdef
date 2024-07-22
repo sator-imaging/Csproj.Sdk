@@ -1,0 +1,14 @@
+{
+    "name": "UnityObject.NullableExtensions",
+    "rootNamespace": "UnityObject.NullableExtensions",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
