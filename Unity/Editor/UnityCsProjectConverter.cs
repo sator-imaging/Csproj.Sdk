@@ -4,19 +4,17 @@
  */
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml;
 using System.Xml.Linq;
+using Unity.CodeEditor;
 using UnityEditor;
 using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
@@ -81,15 +79,19 @@ namespace SatorImaging.Csproj.Sdk
             if (!Prefs.Instance.EnableGenerator)
                 return content;
 
+            if (CompilationPipeline.codeOptimization == CodeOptimization.Debug)
+            {
+                if (Prefs.Instance.DisableInDebugMode)
+                    return content;
+            }
+
+            const string MSBUILD_AUTO_IMPORT = "Directory.Build";
+            CreateFileIfNotExists(MSBUILD_AUTO_IMPORT + EXT_PROPS, "<Nullable>enable</Nullable>");
+            CreateFileIfNotExists(MSBUILD_AUTO_IMPORT + EXT_TARGETS, null);
 
             //// TODO: double clicking .cs file in Unity always call this method for all assemblies (.asmdef)
             ////       need to make it more efficient and faster
             //UnityEngine.Debug.Log(nameof(UnityCsProjectConverter) + ": " + nameof(OnGeneratedCSProject) + ": " + path);
-
-            CreateFileIfNotExists(UNITY_PROJ_DIR_NAME + EXT_SHARED + EXT_PROPS);
-            CreateFileIfNotExists(UNITY_PROJ_DIR_NAME + EXT_EDITOR + EXT_PROPS);
-            CreateFileIfNotExists(UNITY_PROJ_DIR_NAME + EXT_SHARED + EXT_TARGETS);
-            CreateFileIfNotExists(UNITY_PROJ_DIR_NAME + EXT_EDITOR + EXT_TARGETS);
 
             var xdoc = XDocument.Parse(content);
             var ns = XNamespace.Get(XML_NS);
@@ -108,52 +110,51 @@ namespace SatorImaging.Csproj.Sdk
             }
 
 
-            const string TAG_PROPERTY_GROUP = "PropertyGroup";
-
-            var propGroup = xdoc.Descendants(ns.GetName(TAG_PROPERTY_GROUP)).FirstOrDefault();
-            if (propGroup == null)
+            // NOTE: these update will show "Attach to Unity" button in VS toolbar.
+            //       but it is not work correctly just slows down VS launch time.
+            //https://github.com/Unity-Technologies/com.unity.ide.visualstudio/blob/master/Packages/com.unity.ide.visualstudio/Editor/ProjectGeneration/SdkStyleProjectGeneration.cs
+            /*
+            const string TAG_CAPABILITY = "ProjectCapability";
+            const string ATTR_INCLUDE = "Include";
+            const string ATTR_REMOVE = "Remove";
+            const string TAG_ITEMGROUP = "ItemGroup";
+            if (Prefs.Instance.EnableSdkStyle)
             {
-                UnityEngine.Debug.LogError("unable to take .csproj node: " + TAG_PROPERTY_GROUP);
-                return content;
+                //header
+                var headerItemGroup = new XElement(ns.GetName(TAG_ITEMGROUP));
+                headerItemGroup.Add(new XComment(nameof(UnityCsProjectConverter)));
+
+                foreach (var cap in new string[]
+                {
+                    "Unity",
+                })
+                {
+                    headerItemGroup.Add(new XElement(ns.GetName(TAG_CAPABILITY), new XAttribute(ATTR_INCLUDE, cap)));
+                }
+                root.AddFirst(headerItemGroup);
+
+                //footer
+                var footerItemGroup = new XElement(ns.GetName(TAG_ITEMGROUP));
+                footerItemGroup.Add(new XComment(nameof(UnityCsProjectConverter)));
+
+                foreach (var cap in new string[]
+                {
+                    "LaunchProfiles",
+                    "SharedProjectReferences",
+                    "ReferenceManagerSharedProjects",
+                    "ProjectReferences",
+                    "ReferenceManagerProjects",
+                    "COMReferences",
+                    "ReferenceManagerCOM",
+                    "AssemblyReferences",
+                    "ReferenceManagerAssemblies",
+                })
+                {
+                    footerItemGroup.Add(new XElement(ns.GetName(TAG_CAPABILITY), new XAttribute(ATTR_REMOVE, cap)));
+                }
+                root.Add(footerItemGroup);
             }
-
-
-            // Custom .props/.targets!!
-            const string TAG_IMPORT = "Import";
-            const string ATTR_PROJECT = "Project";
-            var importTypes = new string[] { EXT_SHARED, EXT_EDITOR };
-
-            /* =      .props      = */
-
-            // reversed order!! later appears earlier in xml
-            root.AddFirst(new XComment(string.Empty));
-
-            foreach (var import in importTypes.Reverse())  // reversed order!!
-            {
-                if (_generateForBuild && import == EXT_EDITOR)
-                    continue;
-
-                root.AddFirst(new XElement(ns.GetName(TAG_IMPORT), new XAttribute(ATTR_PROJECT, UNITY_PROJ_DIR_NAME + import + EXT_PROPS)));
-            }
-
-            root.AddFirst(new XComment(nameof(UnityCsProjectConverter)));
-            root.AddFirst(new XComment(string.Empty));
-
-
-            /* =      .targets      = */
-
-            root.Add(new XComment(string.Empty));
-            root.Add(new XComment(nameof(UnityCsProjectConverter)));
-
-            foreach (var import in importTypes)
-            {
-                if (_generateForBuild && import == EXT_EDITOR)
-                    continue;
-
-                root.Add(new XElement(ns.GetName(TAG_IMPORT), new XAttribute(ATTR_PROJECT, UNITY_PROJ_DIR_NAME + import + EXT_TARGETS)));
-            }
-
-            root.Add(new XComment(string.Empty));
+            */
 
 
             //version!?
@@ -191,32 +192,33 @@ namespace SatorImaging.Csproj.Sdk
             public override Encoding Encoding => Encoding.UTF8;
         }
 
-        readonly static StringBuilder cache_sb = new(capacity: 65536);  // usual .csproj file size is around 60KB
+        readonly static StringBuilder cache_sb = new(capacity: 65536);  // usual .csproj file size is around 60KiB
         readonly static XDocumentWriter cache_writer = new(cache_sb);
 
 
         /*  helper  ================================================================ */
 
-        static void CreateFileIfNotExists(string fileName)
+        static void CreateFileIfNotExists(string fileName, string? propertyGroupContent)
         {
             if (File.Exists(fileName))
                 return;
 
-            File.WriteAllText(fileName,
+            string content =
 $@"<Project xmlns=""{XML_NS}"">
     <PropertyGroup>
-    </PropertyGroup>
+";
+
+            if (propertyGroupContent != null)
+            {
+                content += "        " + propertyGroupContent.Replace("\n", "\n        ").TrimEnd() + Environment.NewLine;
+            }
+
+            content +=
+$@"    </PropertyGroup>
 </Project>
-",
-                Encoding.UTF8);
-        }
+";
 
-
-        static XmlNode CreateCommentNode(XmlDocument xml, XmlNode root, string comment)
-        {
-            var result = xml.CreateNode(XmlNodeType.Comment, nameof(UnityCsProjectConverter), root.NamespaceURI);
-            result.InnerText = comment;
-            return result;
+            File.WriteAllText(fileName, content, Encoding.UTF8);
         }
 
 
@@ -238,37 +240,8 @@ $@"<Project xmlns=""{XML_NS}"">
 
         static void RegenerateProjectFiles()
         {
-            var generatorList = new List<object>();
-            foreach (var t in TypeCache.GetTypesDerivedFrom<object>())
-            {
-                if (!t.GetInterfaces().Any(x => x.Name == "IGenerator"))  // vs and vscode plugin use same interface name
-                    continue;
-
-                var generator = Activator.CreateInstance(t)
-                    ?? throw new NullReferenceException(t.ToString());
-
-                generatorList.Add(generator);
-            }
-
-            if (generatorList.Count == 0)
-            {
-                return;
-            }
-            else if (generatorList.Count > 1)
-            {
-                UnityEngine.Debug.LogError("multiple .csproj generators found: " + string.Join(", ", generatorList));
-                return;
-            }
-
-            MethodInfo Sync;
-            Sync = generatorList[0].GetType().GetMethod(nameof(Sync))
-                ?? throw new NullReferenceException(nameof(Sync) + " method not found: " + generatorList[0]);
-
-            Sync.Invoke(generatorList[0], Array.Empty<object>());
-
-            // for commandline build
-            Console.WriteLine(nameof(UnityCsProjectConverter) + ": " + nameof(RegenerateProjectFiles));
-            UnityEngine.Debug.Log(nameof(UnityCsProjectConverter) + ": " + nameof(RegenerateProjectFiles));
+            var current = CodeEditor.Editor.CurrentCodeEditor;
+            current.SyncAll();
         }
 
 
@@ -340,6 +313,7 @@ $@"<Project xmlns=""{XML_NS}"">
             const string MENU_ROOT = "File/C# Project (.csproj)/";
             const string MENU_ENABLE_GENERATOR = MENU_ROOT + "Enable Override";
             const string MENU_DISABLE_ON_BUILD = MENU_ROOT + "Disable Override on Build";
+            const string MENU_DISABLE_IN_DEBUG_MODE = MENU_ROOT + "Disable Override in Debug Mode \t (experimental)";
             const string MENU_ENABLE_SDK_STYLE = MENU_ROOT + "Enable SDK Style \t (latest .csproj format)";
             const string MENU_USE_VOID_SDK = MENU_ROOT + "Use \"Void\" SDK";
             const string MENU_REVIEW_CSPROJ = MENU_ROOT + "Review Resulting .csproj...";
@@ -358,13 +332,22 @@ $@"<Project xmlns=""{XML_NS}"">
                     var prefs = Prefs.Instance;
                     Menu.SetChecked(MENU_ENABLE_GENERATOR, prefs.EnableGenerator);
                     Menu.SetChecked(MENU_DISABLE_ON_BUILD, prefs.DisableOnBuild);
+                    Menu.SetChecked(MENU_DISABLE_IN_DEBUG_MODE, prefs.DisableInDebugMode);
                     Menu.SetChecked(MENU_ENABLE_SDK_STYLE, prefs.EnableSdkStyle);
                     Menu.SetChecked(MENU_USE_VOID_SDK, prefs.UseVoidSdk);
 
                     // need to save to .json before recompile in Unity editor
-                    CompilationPipeline.compilationStarted += _ => prefs.Save();
+                    CompilationPipeline.compilationStarted -= OnCompilationStarted;
+                    CompilationPipeline.compilationStarted += OnCompilationStarted;
+
+                    CompilationPipeline.codeOptimizationChanged -= OnCodeOptimizationChanged;
+                    CompilationPipeline.codeOptimizationChanged += OnCodeOptimizationChanged;
                 };
             }
+
+            readonly static Action<object> OnCompilationStarted = _ => Prefs.Instance.Save();
+
+            readonly static Action<CodeOptimization> OnCodeOptimizationChanged = _ => RegenerateProjectFiles();
 
 
             /* =      enable generator      = */
@@ -391,6 +374,30 @@ $@"<Project xmlns=""{XML_NS}"">
                 Menu.SetChecked(MENU_DISABLE_ON_BUILD, toggled);
             }
 
+
+            /* =      disable in debug mode      = */
+
+            [MenuItem(MENU_DISABLE_IN_DEBUG_MODE, validate = true)]
+            static bool Menu_DisableInDebugMode_Validate() => Prefs.Instance.EnableGenerator;
+
+            [MenuItem(MENU_DISABLE_IN_DEBUG_MODE, priority = PRIORITY_MENU)]
+            static void Menu_DisableInDebugMode_Toggle()
+            {
+                if (Prefs.Instance.DisableInDebugMode == false)
+                {
+                    if (!EditorUtility.DisplayDialog(nameof(UnityCsProjectConverter),
+                        "Strongly recommend that turn off \"Auto Reload Project\" option in Tools for Unity preference found in Visual Studio.\n\n"
+                        + "When auto-reloading is enabled and Visual Studio is open while changing to debug mode, it could cause VS indefinitely reloading.",
+                        "Confirm", "cancel"))
+                    {
+                        return;
+                    }
+                }
+
+                var toggled = !Prefs.Instance.DisableInDebugMode;
+                Prefs.Instance.DisableInDebugMode = toggled;
+                Menu.SetChecked(MENU_DISABLE_IN_DEBUG_MODE, toggled);
+            }
 
 
             /* =      enable sdk style      = */
@@ -569,6 +576,7 @@ $@"<Project xmlns=""{XML_NS}"">
             // menus
             [SerializeField] bool enableGenerator = true;
             [SerializeField] bool disableOnBuild = false;
+            [SerializeField] bool disableInDebugMode = false;
             [SerializeField] bool enableSdkStyle = true;
             [SerializeField] bool useVoidSdk = true;
 
@@ -655,6 +663,13 @@ $@"<Project xmlns=""{XML_NS}"">
                     //Save();
                 }
             }
+
+            public bool DisableInDebugMode
+            {
+                get => disableInDebugMode;
+                set => disableInDebugMode = value;
+            }
+
         }
 
     }

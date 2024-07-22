@@ -39,21 +39,14 @@ UnityCsProjectConverter.Prefs.Instance.UseVoidSdk = false;
 
 # `.csproj` Overrides
 
-Extension will add the following overrides to `.csproj`.
+To customize property, you can use the following overrides to `.csproj`.
 
-- Unity project folder
-    - `<ProjectFolderName>.UnityShared.props`
-    - `<ProjectFolderName>.UnityShared.targets`
-    - `<ProjectFolderName>.UnityEditor.props` (see *note*)
-    - `<ProjectFolderName>.UnityEditor.targets` (see *note*)
 - Unity project or ascendant folder
     - `Directory.Build.props` (by msbuild)
     - `Directory.Build.targets` (by msbuild)
 
 > [!NOTE]
 > `.props` overrides loaded in earlier stage of parsing `.csproj` file and then `.targets` overrides loaded around end of parse.
-> 
-> `UnityEditor` override is loaded later than `UnityShared` and only loaded in Unity Editor environment ***except for building app in Editor***.
 
 
 
