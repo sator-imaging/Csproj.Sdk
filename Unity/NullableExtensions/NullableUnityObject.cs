@@ -23,7 +23,7 @@ using Object = UnityEngine.Object;
 
 #nullable enable
 
-namespace UnityObject.Nullable
+namespace UnityObject.NullableExtensions
 {
 
 #pragma warning disable CS0618  // NOTE: to prevent misuse, NullableUnityObject<T> is marked as obsolete
