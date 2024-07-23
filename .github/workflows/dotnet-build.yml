@@ -22,9 +22,13 @@ jobs:
       with:
         dotnet-version: 8.0.x
     - name: Restore dependencies
-      run: dotnet restore
+      run: |
+        cd src
+        dotnet restore
     - name: Build
-      run: dotnet build --no-restore
+      run: |
+        cd src
+        dotnet build --no-restore
     #- name: Test
     #  run: dotnet test --no-build --verbosity normal
 
@@ -32,4 +36,4 @@ jobs:
       uses: actions/upload-artifact@v4.3.4
       with:
         name: 'nuget'
-        path: '**/*.nupkg'
+        path: 'src/**/*.nupkg'
