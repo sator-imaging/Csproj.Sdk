@@ -9,4 +9,10 @@
 		<GlobalNugetPackageReleaseNote>$(GlobalNugetRepositoryUrl)</GlobalNugetPackageReleaseNote>
 		<GlobalNugetPackageCopyright>$(GlobalNugetProjectUrl)</GlobalNugetPackageCopyright>
 	</PropertyGroup>
+	<ItemGroup>
+		<PackageReference Include="SatorImaging.StaticMemberAnalyzer" Version="*">
+		<PrivateAssets>all</PrivateAssets>
+		<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+	</ItemGroup>
 </Project>
