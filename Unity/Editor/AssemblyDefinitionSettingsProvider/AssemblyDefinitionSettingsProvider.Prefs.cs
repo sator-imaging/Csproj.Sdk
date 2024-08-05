@@ -20,6 +20,7 @@ namespace SatorImaging.Csproj.Sdk
         {
             // json fields
             [SerializeField] bool enableImplicitRefsOnChanges = false;
+            [SerializeField] bool turnOnImplicitRefsOnChangesAfterDomainReloading = false;
             [SerializeField] string[]? implicitReferenceGUIDs;
             [SerializeField] string[]? implicitReferenceNames;
 
@@ -42,6 +43,12 @@ namespace SatorImaging.Csproj.Sdk
             {
                 get { return enableImplicitRefsOnChanges; }
                 set { enableImplicitRefsOnChanges = value; }
+            }
+
+            public bool TurnOnImplicitRefsOnChangesAfterDomainReloading
+            {
+                get { return turnOnImplicitRefsOnChangesAfterDomainReloading; }
+                set { turnOnImplicitRefsOnChangesAfterDomainReloading = value; }
             }
 
 
