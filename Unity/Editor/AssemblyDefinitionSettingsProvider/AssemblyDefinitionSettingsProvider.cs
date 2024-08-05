@@ -110,9 +110,10 @@ namespace SatorImaging.Csproj.Sdk
 
         readonly GUIContent gui_implicitRefsLabel = new("Implicit Assembly References");
         readonly GUIContent gui_enableImplicitRefsLabel = new("Auto Update .asmdef Files on Import Event");
-        readonly GUIContent gui_updateBtnLabel = new("Update All <b>.asmdef</b> *", "Only files in 'Assets/' folder");
+        readonly GUIContent gui_updateBtnLabel = new("Update All <b>.asmdef</b> *", "Only files in `Assets/` folder");
         readonly GUIContent gui_removeBtnLabel = new("Remove from All");
-        readonly GUIContent gui_assetsADefListLabel = new("Assembly Definitions in Assets *", "[Experimental]");
+        readonly GUIContent gui_assetsADefListLabel
+            = new("Assembly Definitions in Assets *", "Click on selected list item will unveil .asmdef file in Project panel");
         readonly GUIContent gui_updateADefListLabel = new("Reload List");
         readonly GUIContent gui_dialogHelpText = new("[Integrated Inspector] *experimental");
         //readonly Texture gui_searchIcon = EditorGUIUtility.IconContent("d_Search Icon").image;
@@ -124,9 +125,14 @@ namespace SatorImaging.Csproj.Sdk
         Vector2 gui_assetsADefScrollPos;
         Vector2 gui_miniInspectorScrollPos;
 
+        // fields must be reset if selection changed
         static Editor? gui_cachedEditor;
         static string? _activeADefAssetPath;
+        static bool _asmdefHasModified_last = false;
+        static bool _asmdefHasModified_changed = false;
+
         static bool _modifingAssetFiles = false;
+
 
         public override void OnGUI(string searchContext)
         {
@@ -196,66 +202,71 @@ namespace SatorImaging.Csproj.Sdk
 
                 EditorGUILayout.LabelField(gui_implicitRefsLabel, style_sectionHeaderLabel);
 
-                // implicit refs list
-                using (var cc = new EditorGUI.ChangeCheckScope())
-                {
-                    gui_implicitRefsReorderableList.DoLayoutList();
-
-                    if (cc.changed)
-                    {
-                        var snapshot = _implicitADefList
-                            .Where(static x => x != null)
-                            .Select(static x =>
-                            {
-                                (string name, string guid) result = (string.Empty, string.Empty);
-
-                                if (x != null && !string.IsNullOrWhiteSpace(x.text))
-                                {
-                                    if (AssetDatabase.TryGetGUIDAndLocalFileIdentifier(x, out var guid, out long id))
-                                    {
-                                        // NOTE: x.name is FILE NAME, reference requires JSON's NAME
-                                        var jsonObj = JsonUtility.FromJson<AssemDef_JsonLoader>(x.text);
-
-                                        result.name = jsonObj?.name ?? string.Empty;
-                                        result.guid = GUID_MODE_PREFIX + guid;
-
-                                        //Debug.Log(LOG_PREFIX + result.guid + " / " + result.name);
-                                    }
-                                }
-
-                                return result;
-                            })
-                            .Where(static x => x.name.Length > 0 && x.guid.Length > 0)
-                            .Distinct()
-                            ;
-
-                        Prefs.Instance.ImplicitReferenceGUIDs = snapshot.Select(static x => x.guid).ToArray();
-                        Prefs.Instance.ImplicitReferenceNames = snapshot.Select(static x => x.name).ToArray();
-                    }
-                }
-
-
-                EditorGUILayout.Space(-EditorGUIUtility.singleLineHeight * 1.0f);
-
-                using (new GUILayout.HorizontalScope())
-                {
-                    Prefs.Instance.EnableImplicitRefsOnChanges
-                        = EditorGUILayout.ToggleLeft(gui_enableImplicitRefsLabel, Prefs.Instance.EnableImplicitRefsOnChanges, EditorStyles.largeLabel);
-
-                    EditorGUILayout.Space();
-                }
-
-                EditorGUILayout.Space();
-
                 // TODO: add "apply all changes" button to allow changing multiple .asmdef files at once.
                 bool disallowChangeSelection = false;
                 if (gui_cachedEditor is AssetImporterEditor currentEditor)
                 {
-                    disallowChangeSelection = currentEditor.HasModified();
+                    var hasModified = currentEditor.HasModified();
+                    _asmdefHasModified_changed = hasModified != _asmdefHasModified_last;
+                    _asmdefHasModified_last = hasModified;
+
+                    disallowChangeSelection = hasModified;
                 }
 
                 using (new EditorGUI.DisabledScope(disallowChangeSelection || _modifingAssetFiles))
                 {
+                    // implicit refs list
+                    using (var cc = new EditorGUI.ChangeCheckScope())
+                    {
+                        gui_implicitRefsReorderableList.DoLayoutList();
+
+                        if (cc.changed)
+                        {
+                            var snapshot = _implicitADefList
+                                .Where(static x => x != null)
+                                .Select(static x =>
+                                {
+                                    (string name, string guid) result = (string.Empty, string.Empty);
+
+                                    if (x != null && !string.IsNullOrWhiteSpace(x.text))
+                                    {
+                                        if (AssetDatabase.TryGetGUIDAndLocalFileIdentifier(x, out var guid, out long id))
+                                        {
+                                            // NOTE: x.name is FILE NAME, reference requires JSON's NAME
+                                            var jsonObj = JsonUtility.FromJson<AssemDef_JsonLoader>(x.text);
+
+                                            result.name = jsonObj?.name ?? string.Empty;
+                                            result.guid = GUID_MODE_PREFIX + guid;
+
+                                            //Debug.Log(LOG_PREFIX + result.guid + " / " + result.name);
+                                        }
+                                    }
+
+                                    return result;
+                                })
+                                .Where(static x => x.name.Length > 0 && x.guid.Length > 0)
+                                .Distinct()
+                                ;
+
+                            Prefs.Instance.ImplicitReferenceGUIDs = snapshot.Select(static x => x.guid).ToArray();
+                            Prefs.Instance.ImplicitReferenceNames = snapshot.Select(static x => x.name).ToArray();
+                        }
+                    }
+
+
+                    EditorGUILayout.Space(-EditorGUIUtility.singleLineHeight * 1.0f);
+
+                    using (new GUILayout.HorizontalScope())
+                    {
+                        Prefs.Instance.EnableImplicitRefsOnChanges
+                            = EditorGUILayout.ToggleLeft(gui_enableImplicitRefsLabel, Prefs.Instance.EnableImplicitRefsOnChanges, EditorStyles.largeLabel);
+
+                        EditorGUILayout.Space();
+                    }
+
+                    EditorGUILayout.Space();
+
+
                     /* =      add/remove buttons      = */
                     using (new EditorGUILayout.HorizontalScope())
                     {
@@ -266,13 +277,7 @@ namespace SatorImaging.Csproj.Sdk
 
                         if (GUILayout.Button(gui_removeBtnLabel, style_largeBtn))
                         {
-                            var prefs = Prefs.Instance;
-                            var restore_EnableImplicitRefsOnChanges = prefs.EnableImplicitRefsOnChanges;
-                            prefs.EnableImplicitRefsOnChanges = false;  // to avoid looping!
-
                             LockAndResetIntegratedInspectorThenUpdateAssets(ImplicitAssemblyReferenceProcessor.TryRemoveImplicitReferences);
-
-                            EditorApplication.delayCall += () => Prefs.Instance.EnableImplicitRefsOnChanges = restore_EnableImplicitRefsOnChanges;
                         }
 
                         GUILayout.FlexibleSpace();
@@ -349,6 +354,9 @@ namespace SatorImaging.Csproj.Sdk
                 {
                     gui_miniInspectorScrollPos = sv_miniInspector.scrollPosition;
 
+                    if (_asmdefHasModified_changed)
+                        Prefs.Instance.Save();
+
                     try
                     {
                         // TODO: don't ignore exception...!
@@ -367,8 +375,7 @@ namespace SatorImaging.Csproj.Sdk
                     {
                         EditorGUIUtility.ExitGUI();
 
-                        Editor.DestroyImmediate(gui_cachedEditor);
-                        gui_cachedEditor = null;
+                        ResetIntegratedInspector();
 
                         EditorGUIUtility.ExitGUI();
                     }
@@ -396,31 +403,43 @@ namespace SatorImaging.Csproj.Sdk
             // NOTE: don't remove this!!
             //       reset is required before compilation and selection change!!
             CompilationPipeline.compilationStarted += _ => ResetIntegratedInspector();
+
+            var prefs = Prefs.Instance;
+            if (prefs.TurnOnImplicitRefsOnChangesAfterDomainReloading)
+            {
+                prefs.EnableImplicitRefsOnChanges = true;
+                prefs.TurnOnImplicitRefsOnChangesAfterDomainReloading = false;
+                prefs.Save();
+            }
         }
 
 
-        internal static void LockIntegratedInspector(bool isLocked) => _modifingAssetFiles = isLocked;
+        public static void LockIntegratedInspector(bool isLocked) => _modifingAssetFiles = isLocked;
 
-        internal static void ResetIntegratedInspector()
+        public static void ResetIntegratedInspector()
         {
             // need to clear cached editor to update inspector correctly
             if (gui_cachedEditor != null)
             {
                 var so = gui_cachedEditor.serializedObject;
                 Editor.DestroyImmediate(gui_cachedEditor);
-                so.Dispose();
+                so.Dispose();  // <-- this is important...!?
                 so = null;
 
                 gui_cachedEditor = null;
                 _activeADefAssetPath = null;
+
+                _asmdefHasModified_last = false;
+                _asmdefHasModified_changed = false;
             }
         }
 
 
-        internal static void LockAndResetIntegratedInspectorThenUpdateAssets(Func<string, bool> updateFunc)
+        public static void LockAndResetIntegratedInspectorThenUpdateAssets(Func<string, bool> updateFunc)
         {
             ResetIntegratedInspector();
             LockIntegratedInspector(true);
+            // delay is not required but make UX better
             EditorApplication.delayCall += () =>
             {
                 bool isUpdated = false;
@@ -436,7 +455,17 @@ namespace SatorImaging.Csproj.Sdk
                     }
 
                     if (isUpdated)
+                    {
+                        var prefs = Prefs.Instance;
+                        prefs.TurnOnImplicitRefsOnChangesAfterDomainReloading = prefs.EnableImplicitRefsOnChanges;
+                        prefs.EnableImplicitRefsOnChanges = false;
+                        prefs.Save();  // prepare for domain reloading
+
+                        var wnd = EditorWindow.focusedWindow;
+                        wnd.ShowNotification(new GUIContent("Reloading Assets..."));
+
                         AssetDatabase.Refresh();
+                    }
                 }
                 finally
                 {
