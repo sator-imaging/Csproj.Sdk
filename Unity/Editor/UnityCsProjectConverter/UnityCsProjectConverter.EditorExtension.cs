@@ -29,10 +29,7 @@ namespace SatorImaging.Csproj.Sdk
             const int PRIORITY_MENU = 209;  // 200: separator disappears 210: sandwiched by `Build` items 220: right after `Build` 230: right before `Exit`
 
 
-            // NOTE: InitializeOnLoad cannot be used in UPM package script.
-            //       Unity loads packages before Editor assembly ready so editor callbacks won't run.
-            //[InitializeOnLoadMethod]
-            [UnityEditor.Callbacks.DidReloadScripts]
+            [InitializeOnLoadMethod]
             static void UnityEditor_Initialize()
             {
                 // must delay to wait menu item creation
