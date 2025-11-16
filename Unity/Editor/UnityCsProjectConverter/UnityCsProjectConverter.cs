@@ -36,7 +36,7 @@ namespace SatorImaging.Csproj.Sdk
 
         /// <inheritdoc cref="CustomSdkNameWithVersion"/>
         public readonly static string SDK_VOID_NAME_SLASH = "Csproj.Sdk.Void/";
-        public readonly static string SDK_VOID_DEFAULT_VERSION = "1.1.0";
+        public readonly static string SDK_VOID_DEFAULT_VERSION = "1.1.1";
 
         private static string? _latestVoidSdkNameWithVersion;
         public static string LatestVoidSdkNameWithVersion

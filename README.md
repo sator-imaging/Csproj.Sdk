@@ -1,6 +1,10 @@
-`Csproj.Sdk` is msbuild SDK collection for C# project (`.csproj` file) to migrate legacy-style project to newer SDK-style format.
-
 [![Csproj.Sdk.Void](https://img.shields.io/nuget/v/csproj.sdk.void?label=Csproj.Sdk.Void)](https://www.nuget.org/packages/Csproj.Sdk.Void/)
+
+
+
+
+
+`Csproj.Sdk` is msbuild SDK collection for C# project (`.csproj` file) to migrate legacy-style project to newer SDK-style format.
 
 
 
@@ -9,7 +13,7 @@
 For example, use `Csproj.Sdk.Void` as an SDK for your `.csproj`.
 
 ```xml
-<Project Sdk="Csproj.Sdk.Void/1.1.0">
+<Project Sdk="Csproj.Sdk.Void/1.1.1">
     ...
     ... original file contents except for <Project> tag ...
     ...
@@ -17,7 +21,7 @@ For example, use `Csproj.Sdk.Void` as an SDK for your `.csproj`.
 ```
 
 > [!NOTE]
-> Version prefix (`/1.1.0`) must be specified to activate internal nuget resolver.
+> Version prefix (`/1.1.1`) must be specified to activate internal nuget resolver.
 
 This will make project sdk-style and allow setting nullability for whole project by adding `<Nullable>enable</Nullable>` to .csproj.
 Surprisingly, nullability setting is not recognized by Visual Studio if `Project` tag doesn't have `Sdk` attribute!!

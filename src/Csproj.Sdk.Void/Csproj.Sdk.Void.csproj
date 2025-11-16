@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework>netstandard2.1</TargetFramework>
 
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     
     <!-- https://learn.microsoft.com/en-us/nuget/create-packages/set-package-type#known-package-types -->
     <PackageType>MSBuildSdk</PackageType>
@@ -21,6 +21,7 @@
     <PackageId>$(GlobalNugetPackageName)</PackageId>
     <Product>$(GlobalNugetPackageTitle)</Product>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon-128px.png</PackageIcon>
   </PropertyGroup>
 
   <!--
@@ -75,6 +76,10 @@
  
   <ItemGroup>
     <None Include="..\..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\..\icon-128px.png">
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
