@@ -36,7 +36,7 @@ namespace SatorImaging.Csproj.Sdk
 
         /// <inheritdoc cref="CustomSdkNameWithVersion"/>
         public readonly static string SDK_VOID_NAME_SLASH = "Csproj.Sdk.Void/";
-        public readonly static string SDK_VOID_DEFAULT_VERSION = "1.1.2";
+        public readonly static string SDK_VOID_DEFAULT_VERSION = "1.2.0";
 
         private static string? _latestVoidSdkNameWithVersion;
         public static string LatestVoidSdkNameWithVersion
@@ -76,9 +76,10 @@ namespace SatorImaging.Csproj.Sdk
                     return content;
             }
 
-            const string MSBUILD_AUTO_IMPORT = "Directory.Build";
-            CreateFileIfNotExists(MSBUILD_AUTO_IMPORT + EXT_PROPS, "<Nullable>enable</Nullable>");
-            CreateFileIfNotExists(MSBUILD_AUTO_IMPORT + EXT_TARGETS, null);
+            // // TODO: add enable/disable menu commands
+            // const string MSBUILD_AUTO_IMPORT = "Directory.Build";
+            // CreateFileIfNotExists(MSBUILD_AUTO_IMPORT + EXT_PROPS, "<Nullable>enable</Nullable>");
+            // CreateFileIfNotExists(MSBUILD_AUTO_IMPORT + EXT_TARGETS, null);
 
             //// TODO: double clicking .cs file in Unity always call this method for all assemblies (.asmdef)
             ////       need to make it more efficient and faster
