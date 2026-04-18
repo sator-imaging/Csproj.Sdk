@@ -1,5 +1,10 @@
 <Project>
-	<PropertyGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)../Directory.Build.props"
+          Condition=" Exists('$(MSBuildThisFileDirectory)../Directory.Build.props') "
+  />
+
+  <PropertyGroup>
 		<GlobalNugetPackageTitle>Csproj.Sdk</GlobalNugetPackageTitle>
 		<GlobalNugetPackageAuthor>sator-imaging</GlobalNugetPackageAuthor>
 		<GlobalNugetRepositoryUrl>https://github.com/sator-imaging/Csproj.Sdk</GlobalNugetRepositoryUrl>
@@ -9,10 +14,12 @@
 		<GlobalNugetPackageReleaseNote>$(GlobalNugetRepositoryUrl)</GlobalNugetPackageReleaseNote>
 		<GlobalNugetPackageCopyright>$(GlobalNugetProjectUrl)</GlobalNugetPackageCopyright>
 	</PropertyGroup>
-	<ItemGroup>
+
+  <ItemGroup>
 		<PackageReference Include="SatorImaging.StaticMemberAnalyzer" Version="*">
 		<PrivateAssets>all</PrivateAssets>
 		<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 	</ItemGroup>
+
 </Project>
