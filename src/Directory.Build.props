@@ -5,6 +5,23 @@
   />
 
   <PropertyGroup>
+    <!-- Include api comments for nuget packages -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+    <DebugType>none</DebugType>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(CI)' == 'true' OR '$(TF_BUILD)' == 'true' ">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+  </PropertyGroup>
+
+  <PropertyGroup>
 		<GlobalNugetPackageTitle>Csproj.Sdk</GlobalNugetPackageTitle>
 		<GlobalNugetPackageAuthor>sator-imaging</GlobalNugetPackageAuthor>
 		<GlobalNugetRepositoryUrl>https://github.com/sator-imaging/Csproj.Sdk</GlobalNugetRepositoryUrl>
